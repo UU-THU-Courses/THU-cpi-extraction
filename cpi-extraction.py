@@ -8,6 +8,7 @@ import tensorflow as tf
 import pandas as pd
 import numpy as np
 import gensim
+import os
 
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
@@ -16,7 +17,7 @@ from keras.backend.tensorflow_backend import set_session
 from gensim.models import Word2Vec
 from keras.layers import Embedding, LSTM, Dense, Dropout, Input
 from keras.callbacks import EarlyStopping
-from keras.models import Model
+from keras.models import Model, model_from_yaml
 from keras.layers.core import Reshape
 from keras.layers import GlobalMaxPooling1D
 
@@ -49,7 +50,29 @@ def argparser():
 
   return args
 
+def save_model(model_dir, model):
+  # serialize model to YAML
+  model_yaml = model.to_yaml()
+  with open(os.path.join(model_dir, "model.yaml"), "w") as yaml_file:
+    yaml_file.write(model_yaml)
+  # serialize weights to HDF5
+  model.save_weights( os.path.join(model_dir, "model.h5"))
 
+  print("Model saved to disk: " + model_dir)
+
+
+def load_model(model_dir):
+  # load YAML and create model
+  yaml_file = open(os.path.join(model_dir, 'model.yaml'), 'r')
+  loaded_model_yaml = yaml_file.read()
+  yaml_file.close()
+  loaded_model = model_from_yaml(loaded_model_yaml, custom_objects={'AttentionWithContext': AttentionWithContext})
+
+  # load weights into new model
+  loaded_model.load_weights(os.path.join(model_dir, 'model.h5'))
+  print("Loaded model %s from disk: %s" % (model_name, model_dir))
+
+  return loaded_model
 
 
 def main(args):
@@ -132,8 +155,12 @@ def main(args):
 
   callbacks = [EarlyStopping(monitor='val_loss', patience=5)]
 
-  history = model.fit(X_train, y_train, batch_size=10, epochs=2, verbose=1, validation_data=(X_dev, y_dev),
+  history = model.fit(X_train, y_train, batch_size=1000, epochs=2, verbose=1, validation_data=(X_dev, y_dev),
          callbacks=callbacks)
+
+  save_model('./', model)
+
+  print("Training done. Model saved at: ")
 
 if __name__ == "__main__":
 
