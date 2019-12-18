@@ -153,7 +153,7 @@ def plot_metrices(history):
   plt.plot(x_range, loss, 'b', label='Training loss')
   plt.plot(x_range, val_loss, 'r', label='Validation loss')  #x_range, loss, 'bo', x_range, val_loss, 'r', x_range, val_loss, 'ro')
   plt.legend()
-  plt.savefig(args.save_dir+'1.loss.png')
+  plt.savefig('1.loss.png')
 
   plt.figure(2)
   plt.title('Traning and Validation Accuracy')
@@ -162,7 +162,7 @@ def plot_metrices(history):
   plt.plot(x_range, acc, 'b', label='Training Accuracy')
   plt.plot(x_range, val_acc, 'r', label='Validation Accuracy')  #x_range, loss, 'bo', x_range, val_loss, 'r', x_range, val_loss, 'ro')
   plt.legend()
-  plt.savefig(args.save_dir+'2.acc.png')
+  plt.savefig('2.acc.png')
 
 def main(args):
 
@@ -263,9 +263,13 @@ def main(args):
 
   model = load_model('./')
 
-  do_test(model, X_test, y_test, labels_dic) 
+  print('Ploting loss and accuracy')
+  plot_metrices(history)
 
   print("Training done. Model saved at: ")
+
+  do_test(model, X_test, y_test, labels_dic)
+
 
 if __name__ == "__main__":
 
