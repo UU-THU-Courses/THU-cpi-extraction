@@ -106,7 +106,7 @@ def write_results(output_tsv, gs_path, pred, labels_dic):
   print("results written: " + output_tsv, 'NAs_count', NAs_count)
   ft.close()
 
-def do_test(model, sentence_test, y_test, labels_dic):
+def do_test(model, sequence, positon1_sequence, position2_sequence, y_test, labels_dic):
   """
   Run official submission
   :param model
@@ -116,7 +116,7 @@ def do_test(model, sentence_test, y_test, labels_dic):
   print('Starting evaluating')
 
   y_gs = y_test
-  pred = model.predict(sentence_test, verbose=False).argmax(axis=-1)
+  pred = model.predict([sequence, positon1_sequence, position2_sequence], verbose=False).argmax(axis=-1)
   print(pred.shape, 'pred.shape ')
   gs_txt = 'data/sentenses/test.txt'
 
@@ -131,10 +131,10 @@ def do_test(model, sentence_test, y_test, labels_dic):
   os.system("sh ./eval.sh %s %s" % (output_tsv, gs_tsv))
   os.chdir('..')
 
-  print('Confusion Matrix: ')
-  print(confusion_matrix(y_gs, pred))
+  #print('Confusion Matrix: ')
+  #print(confusion_matrix(y_gs, pred))
 
-  print()
+  #print()
   print('Classification Report:')
   print(classification_report(y_gs, pred, labels=list(labels_dic.keys()),target_names=list(labels_dic.values()),digits=5))
 
@@ -322,7 +322,7 @@ def main(args):
 
   print("Training done. Model saved at: ")
 
-  do_test(model, X_test, y_test, labels_dic)
+  do_test(model, X_test, X_position1_test, X_position2_test , y_test, labels_dic)
 
 
 if __name__ == "__main__":
