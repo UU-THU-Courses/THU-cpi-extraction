@@ -12,18 +12,19 @@ import os
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+import sys
 
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.backend.tensorflow_backend import set_session
 from gensim.models import Word2Vec
-from keras.layers import Embedding, LSTM, Dense, Dropout, Input
+from keras.layers import Embedding, LSTM, Dense, Dropout, Input, Bidirectional, Concatenate
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras.models import Model, model_from_yaml
 from keras.layers.core import Reshape
 from keras.layers import GlobalMaxPooling1D
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 
 
 #-----------------------------------------------------------------------------------------------#
@@ -130,12 +131,12 @@ def do_test(model, sentence_test, y_test, labels_dic):
   os.system("sh ./eval.sh %s %s" % (output_tsv, gs_tsv))
   os.chdir('..')
 
-  #print('Confusion Matrix: ')
-  #print(confusion_matrix(y_gs, pred))
+  print('Confusion Matrix: ')
+  print(confusion_matrix(y_gs, pred))
 
-  #print()
+  print()
   print('Classification Report:')
-  #print(classification_report(y_gs, pred, labels=range(1, 6),target_names=labels_dic[1:],digits=3))
+  print(classification_report(y_gs, pred, labels=list(labels_dic.keys()),target_names=list(labels_dic.values()),digits=5))
 
 def plot_metrices(history):
 
@@ -164,24 +165,44 @@ def plot_metrices(history):
   plt.legend()
   plt.savefig('2.acc.png')
 
+
+def words_to_posotion(sentences, ref_position1, ref_position2):
+  position1_sentences = []
+  position2_sentences = []
+  i = 0
+  for sentence in sentences:
+    words = sentence.split(' ')
+    position1_sentence = [str(words.index(word)-ref_position1[i]) for word in words]
+    position1_sentences.append(' '.join(position1_sentence))
+
+    position2_sentence = [str(words.index(word)-ref_position2[i]) for word in words]
+    position2_sentences.append(' '.join(position2_sentence))
+
+    i = i+1
+
+  return position1_sentences, position2_sentences
+
 def main(args):
 
   colums_names = ['group', 'chem', 'gen', 'loc1', 'loc2', 'sentense', 'arg1', 'arg2', 'pmid']
 
   train_data=pd.read_csv(args.train_file, sep='\t', lineterminator='\n', header=None, names=colums_names, keep_default_na=False)
   dev_data=pd.read_csv(args.dev_file, sep='\t', lineterminator='\n', header=None, names=colums_names, keep_default_na=False)
+  train_data = train_data.append(dev_data, ignore_index=True)
+
   test_data=pd.read_csv(args.test_file, sep='\t', lineterminator='\n', header=None, names=colums_names, keep_default_na=False)
 
   # See how the data looks
-  print(train_data.head(1))
-  print('shapes', train_data.shape, dev_data.shape, test_data.shape)
+  #print(train_data.head(1))
+  print('shapes training and testing', train_data.shape, test_data.shape)
 
   # Check for missing data
-  print(train_data.isnull().sum())
-  print(dev_data.isnull().sum())
-  print(test_data.isnull().sum())
+  #print(train_data.isnull().sum())
+  #print(dev_data.isnull().sum())
+  #print(test_data.isnull().sum())
 
   groups=train_data.group.unique()
+  groups.sort()
   dic={}
   labels_dic = {}
   for i,group in enumerate(groups):
@@ -189,7 +210,6 @@ def main(args):
     labels_dic[i] = group
 
   train_labels=train_data.group.apply(lambda x:dic[x])
-  dev_labels=dev_data.group.apply(lambda x:dic[x])
   test_labels=test_data.group.apply(lambda x:dic[x])
   print('labels dictonary', dic)
 
@@ -198,21 +218,42 @@ def main(args):
   tokenizer = Tokenizer(num_words=NUM_WORDS,filters='!"#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n\'',lower=True)
   tokenizer.fit_on_texts(sentenses)
   sequences_train = tokenizer.texts_to_sequences(sentenses)
-  sequences_dev=tokenizer.texts_to_sequences(dev_data.sentense)
   sequences_test=tokenizer.texts_to_sequences(test_data.sentense)
   word_index = tokenizer.word_index
   print('Found %s unique tokens.' % len(word_index))
 
   X_train = pad_sequences(sequences_train)
-  X_dev = pad_sequences(sequences_dev, maxlen=X_train.shape[1])
   X_test = pad_sequences(sequences_test, maxlen=X_train.shape[1])
 
-  y_train = to_categorical(np.asarray(train_labels[train_data.index]))
-  y_dev = to_categorical(np.asarray(dev_labels[dev_data.index]))
-  y_test = to_categorical(np.asarray(test_labels[test_data.index]))
+  #Words Positions with repect to first entity
+  # num_words=maximum number of positions = maximum sentence length
 
-  print('Shape of X train and X devlopment tensor:', X_train.shape,X_dev.shape)
-  print('Shape of label train and development tensor:', y_train.shape,y_dev.shape)
+  position1_sentenses_train, position2_sentenses_train = words_to_posotion(
+             train_data.sentense.values.tolist(), train_data.loc1.values.tolist(), train_data.loc2.values.tolist())
+  position1_sentenses_test, position2_sentenses_test = words_to_posotion(
+             test_data.sentense.values.tolist(), test_data.loc1.values.tolist(), test_data.loc2.values.tolist())
+
+  position_tokenizer = Tokenizer(num_words=X_train.shape[1],filters='!"#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n\'',lower=True)
+  position_tokenizer.fit_on_texts(position1_sentenses_train)
+
+  position1_sequences_train = position_tokenizer.texts_to_sequences(position1_sentenses_train)
+  position1_sequences_test = position_tokenizer.texts_to_sequences(position1_sentenses_test)
+
+  position2_sequences_train = position_tokenizer.texts_to_sequences(position2_sentenses_train)
+  position2_sequences_test = position_tokenizer.texts_to_sequences(position2_sentenses_test)
+
+  position_index = position_tokenizer.word_index
+  print('Found %s unique position tokens.' % len(position_index))
+
+  X_position1_train = pad_sequences(position1_sequences_train, maxlen=X_train.shape[1])
+  X_position2_train = pad_sequences(position2_sequences_train, maxlen=X_train.shape[1])
+
+  X_position1_test = pad_sequences(position1_sequences_test, maxlen=X_train.shape[1])
+  X_position2_test = pad_sequences(position2_sequences_test, maxlen=X_train.shape[1])
+
+
+  y_train = to_categorical(np.asarray(train_labels[train_data.index]))
+  y_test = to_categorical(np.asarray(test_labels[test_data.index]))
 
   word_vectors = Word2Vec.load_word2vec_format(args.word_embedding_model, binary=True)
 
@@ -232,32 +273,45 @@ def main(args):
 
   # A test model
 
-  embedding_layer = Embedding(vocabulary_size,
+  words_embedding_layer = Embedding(vocabulary_size,
                             EMBEDDING_DIM,
                             weights=[embedding_matrix],
                             trainable=True)
 
-  input = Input(shape=(X_train.shape[1],))
-  embedding = embedding_layer(input)
-  output = LSTM(128, return_sequences=True, dropout=0.5)(embedding)
-  output = GlobalMaxPooling1D()(output)
+  # Words
+  words_input = Input(shape=(X_train.shape[1],))
+  words_out = words_embedding_layer(words_input)
+  words_out = Bidirectional(LSTM(128, return_sequences=True, dropout=0.5))(words_out)
+
+  # Position1
+  position1_input = Input(shape=(X_train.shape[1],))
+  position1_out = Embedding(X_train.shape[1], int(EMBEDDING_DIM/2))(position1_input)
+  position1_out = Bidirectional(LSTM(64, return_sequences=True, dropout=0.5))(position1_out)
+
+  # Position2
+  position2_input = Input(shape=(X_train.shape[1],))
+  position2_out = Embedding(X_train.shape[1], int(EMBEDDING_DIM/2))(position2_input)
+  position2_out = Bidirectional(LSTM(64, return_sequences=True, dropout=0.5))(position2_out)
+
+  concat = Concatenate()([words_out, position1_out, position2_out])
+
+  output = GlobalMaxPooling1D()(concat)
   output = Dense(128, activation='relu')(output)
   output = Dropout(0.2)(output)
   output = Dense(len(dic), activation='softmax')(output)
 
-  model = Model(inputs=input, outputs=output)
+  model = Model(inputs=[words_input, position1_input, position2_input], outputs=output)
 
   model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
   model.summary()
 
-  callbacks = [EarlyStopping(monitor='val_loss', patience=50)]
-
   checkpoint = ModelCheckpoint('model.h5', monitor='val_loss', verbose=1, save_best_only=True, mode='min')
   es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=100)
 
-  history = model.fit(X_train, y_train, batch_size=1000, epochs=200000, verbose=1, validation_data=(X_dev, y_dev),
-         callbacks=[checkpoint, es])
+  history = model.fit([X_train, X_position1_train, X_position2_train], y_train, batch_size=1000, epochs=200000,
+       verbose=1, validation_data=([X_test, X_position1_test, X_position2_test], y_test),
+       callbacks=[checkpoint, es])
 
   save_model('./', model)
 
