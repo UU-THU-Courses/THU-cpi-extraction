@@ -42,4 +42,10 @@ def write_to_file_csv(content, path):
 #                                                                                               #
 #***********************************************************************************************#
 def write_to_file_tsv(content, path):
-    pass
+    with open(path, 'w') as f:
+        for line in content:
+            for i, item in enumerate(line):
+                f.write(str(item))
+                if i<8:
+                    f.write("\t")
+            f.write("\n")
