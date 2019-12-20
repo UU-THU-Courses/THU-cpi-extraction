@@ -52,13 +52,14 @@ def get_interaction_words():
     devel_entities = pd.read_csv(devel_entity, sep='\t', lineterminator='\n', header=None, names=column_names_entities, keep_default_na=False)
     tests_entities = pd.read_csv(tests_entity, sep='\t', lineterminator='\n', header=None, names=column_names_entities, keep_default_na=False)
     # read wordnet corpus to make certain adjustments
-    verbs = {x.name().split('.', 1)[0] for x in wn.all_synsets('v')}
+    adverbs = {x.name().split('.', 1)[0] for x in wn.all_synsets('r')}
     nouns = {x.name().split('.', 1)[0] for x in wn.all_synsets('n')}
     adjec = {x.name().split('.', 1)[0] for x in wn.all_synsets('a')}
+    adjec_sat = {x.name().split('.', 1)[0] for x in wn.all_synsets('s')}
     # call the extraction function for each dataset
-    set_1 = _interaction_words(train_data, train_entities, nouns, adjec)
-    set_2 = _interaction_words(devel_data, devel_entities, nouns, adjec)
-    set_3 = _interaction_words(tests_data, tests_entities, nouns, adjec)
+    set_1 = _interaction_words(train_data, train_entities, nouns, adjec, adjec_sat, adverbs)
+    set_2 = _interaction_words(devel_data, devel_entities, nouns, adjec, adjec_sat, adverbs)
+    set_3 = _interaction_words(tests_data, tests_entities, nouns, adjec, adjec_sat, adverbs)
     # get a union of all three sets
     union_set = set_1.union(set_2, set_3)
     # finally write the final set to the text file
@@ -70,7 +71,7 @@ def get_interaction_words():
 #   function to extract interaction words based on entities data provided.                      #
 #                                                                                               #
 #***********************************************************************************************#
-def _interaction_words(sentence_data, entities_data, wordnet_nouns, wordnet_adjec):
+def _interaction_words(sentence_data, entities_data, wordnet_nouns, wordnet_adjec, wordnet_adjec_sat, wordnet_advrb):
     entity_dict = {entity for entity in entities_data['name'].values.tolist()}
     rel_set = {""}
     # a regex to match the new interaction word with
@@ -86,6 +87,10 @@ def _interaction_words(sentence_data, entities_data, wordnet_nouns, wordnet_adje
             if tokens[index] in wordnet_nouns:
                 continue
             if tokens[index] in wordnet_adjec:
+                continue
+            if tokens[index] in wordnet_adjec_sat:
+                continue
+            if tokens[index] in wordnet_advrb:
                 continue
             if tokens[index] in entity_dict:
                 continue
