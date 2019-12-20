@@ -29,6 +29,18 @@ def get_word_index(word, string):
 #   function to write lists data to a file.                                                     #
 #                                                                                               #
 #***********************************************************************************************#
+def write_to_file_txt(content, path):
+    # use csv library to write to the file
+    with open(path, "w") as f:
+        for line in content:
+            f.write(line+"\n")
+
+#***********************************************************************************************#
+#                                                                                               #
+#   description:                                                                                #
+#   function to write lists data to a file.                                                     #
+#                                                                                               #
+#***********************************************************************************************#
 def write_to_file_csv(content, path):
     # use csv library to write to the file
     with open(path, "w") as f:
