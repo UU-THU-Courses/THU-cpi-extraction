@@ -23,10 +23,11 @@ from keras.layers import Embedding, LSTM, Dense, Dropout, Input, Bidirectional, 
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras.models import Model, model_from_yaml
 from keras.layers.core import Reshape
-from keras.layers import GlobalMaxPooling1D
+from keras.layers import GlobalMaxPooling1D, Flatten
 from sklearn.metrics import classification_report, confusion_matrix
+from keras.regularizers import l2
 
-
+from losses import dice
 #-----------------------------------------------------------------------------------------------#
 #                                                                                               #
 #   Define global parameters to be used through out the program                                 #
@@ -135,8 +136,8 @@ def do_test(model, sequence, positon1_sequence, position2_sequence, y_test, labe
   #print(confusion_matrix(y_gs, pred))
 
   #print()
-  print('Classification Report:')
-  print(classification_report(y_gs, pred, labels=list(labels_dic.keys()),target_names=list(labels_dic.values()),digits=5))
+  #print('Classification Report:')
+  #print(classification_report(y_gs, pred, labels=list(labels_dic.keys()),target_names=list(labels_dic.values()),digits=5))
 
 def plot_metrices(history):
 
@@ -296,21 +297,25 @@ def main(args):
   concat = Concatenate()([words_out, position1_out, position2_out])
 
   output = GlobalMaxPooling1D()(concat)
+  #output = Flatten()(concat)
+  #output = Dropout(0.4)(output)
+  #output = Dense(128,kernel_regularizer=l2(0.001), activation='relu')(output)
   output = Dense(128, activation='relu')(output)
   output = Dropout(0.2)(output)
   output = Dense(len(dic), activation='softmax')(output)
 
   model = Model(inputs=[words_input, position1_input, position2_input], outputs=output)
 
-  model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+  model.compile(optimizer='adam', loss=dice, metrics=['accuracy'])
 
   model.summary()
 
   checkpoint = ModelCheckpoint('model.h5', monitor='val_loss', verbose=1, save_best_only=True, mode='min')
-  es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=100)
+  es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=5)
 
-  history = model.fit([X_train, X_position1_train, X_position2_train], y_train, batch_size=1000, epochs=200000,
-       verbose=1, validation_data=([X_test, X_position1_test, X_position2_test], y_test),
+  history = model.fit([X_train, X_position1_train, X_position2_train], y_train, batch_size=200, epochs=200000,
+       verbose=1, #steps_per_epoch = 20,
+       validation_data=([X_test, X_position1_test, X_position2_test], y_test), #validation_steps = 15,
        callbacks=[checkpoint, es])
 
   save_model('./', model)
