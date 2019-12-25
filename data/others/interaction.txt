@@ -1,5 +1,3 @@
-#Protein interaction words:
-
 acceptor
 acetylate
 acetylated
