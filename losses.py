@@ -1,6 +1,7 @@
 import sys
 from keras import backend as K
 from keras.losses import categorical_crossentropy
+import tensorflow as tf
 
 def dice_coef(y_true, y_pred):
     smooth = 1
@@ -18,3 +19,11 @@ def dice(y_true, y_pred):
     for index in range(numLabels):
         dice -= dice_coef(y_true[:,index], y_pred[:,index])
     return (1-alpha)*dice + alpha * categorical_crossentropy(y_true, y_pred)
+
+
+def dice_matrix(y_true, y_pred):
+    numLabels = y_pred.shape[-1]
+    dice=0
+    for index in range(numLabels):
+        dice += dice_coef(y_true[:,index], y_pred[:,index])
+    return dice/ tf.cast(numLabels, tf.float32)

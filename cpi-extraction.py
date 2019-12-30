@@ -27,7 +27,7 @@ from keras.layers import GlobalMaxPooling1D, Flatten
 from sklearn.metrics import classification_report, confusion_matrix
 from keras.regularizers import l2
 
-from losses import dice
+from losses import dice, dice_matrix
 #-----------------------------------------------------------------------------------------------#
 #                                                                                               #
 #   Define global parameters to be used through out the program                                 #
@@ -146,6 +146,9 @@ def plot_metrices(history):
   loss = history.history["loss"]
   val_loss = history.history["val_loss"]
 
+  dice_matrix = history.history["dice_matrix"]
+  val_dice_matrix = history.history["val_dice_matrix"]
+
   x_range = range(len(acc))
 
   plt.figure(1)
@@ -166,6 +169,14 @@ def plot_metrices(history):
   plt.legend()
   plt.savefig('2.acc.png')
 
+  plt.figure(3)
+  plt.title('Dice Matrix Training and Validation')
+  plt.xlabel("Ephocs")
+  plt.ylabel("Dice Matrix")
+  plt.plot(x_range, dice_matrix, 'b', label='Training Dice Matrix')
+  plt.plot(x_range, val_dice_matrix, 'r', label='Validation Dice Matrix')  #x_range, loss, 'bo', x_range, val_loss, 'r', x_range, val_loss, 'ro')
+  plt.legend()
+  plt.savefig('3.Dice.png')
 
 def words_to_posotion(sentences, ref_position1, ref_position2):
   position1_sentences = []
@@ -300,18 +311,18 @@ def main(args):
   #output = Flatten()(concat)
   #output = Dropout(0.4)(output)
   #output = Dense(128,kernel_regularizer=l2(0.001), activation='relu')(output)
-  output = Dense(128, activation='relu')(output)
+  output = Dense(128, activation='relu', kernel_initializer='he_normal')(output)
   output = Dropout(0.2)(output)
-  output = Dense(len(dic), activation='softmax')(output)
+  output = Dense(len(dic), activation='softmax', kernel_initializer='he_normal')(output)
 
   model = Model(inputs=[words_input, position1_input, position2_input], outputs=output)
 
-  model.compile(optimizer='adam', loss=dice, metrics=['accuracy'])
+  model.compile(optimizer='adam', loss=dice, metrics=['accuracy', dice_matrix])
 
   model.summary()
 
-  checkpoint = ModelCheckpoint('model.h5', monitor='val_loss', verbose=1, save_best_only=True, mode='min')
-  es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=5)
+  checkpoint = ModelCheckpoint('model.h5', monitor='val_dice_matrix', verbose=1, save_best_only=True, mode='max')
+  es = EarlyStopping(monitor='val_dice_matrix', mode='max', verbose=1, patience=8)
 
   history = model.fit([X_train, X_position1_train, X_position2_train], y_train, batch_size=200, epochs=200000,
        verbose=1, #steps_per_epoch = 20,
