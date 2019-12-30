@@ -293,17 +293,17 @@ def main(args):
   # Words
   words_input = Input(shape=(X_train.shape[1],))
   words_out = words_embedding_layer(words_input)
-  words_out = Bidirectional(LSTM(128, return_sequences=True, dropout=0.5))(words_out)
+  words_out = Bidirectional(LSTM(128, return_sequences=True, dropout=0.5, init='he_normal', inner_init='he_normal'))(words_out)
 
   # Position1
   position1_input = Input(shape=(X_train.shape[1],))
   position1_out = Embedding(X_train.shape[1], int(EMBEDDING_DIM/2))(position1_input)
-  position1_out = Bidirectional(LSTM(64, return_sequences=True, dropout=0.5))(position1_out)
+  position1_out = Bidirectional(LSTM(64, return_sequences=True, dropout=0.5, init='he_normal', inner_init='he_normal'))(position1_out)
 
   # Position2
   position2_input = Input(shape=(X_train.shape[1],))
   position2_out = Embedding(X_train.shape[1], int(EMBEDDING_DIM/2))(position2_input)
-  position2_out = Bidirectional(LSTM(64, return_sequences=True, dropout=0.5))(position2_out)
+  position2_out = Bidirectional(LSTM(64, return_sequences=True, dropout=0.5, init='he_normal', inner_init='he_normal'))(position2_out)
 
   concat = Concatenate()([words_out, position1_out, position2_out])
 
